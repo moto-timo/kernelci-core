@@ -1,0 +1,134 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: kernelci-build
+  namespace: tekton-pipelines
+spec:
+  params:
+    - name: ARCH
+      type: string
+      description: CPU architecture as understood by the Linux kernel build system
+      default: ""
+    - name: DEFCONFIG
+      type: string
+      description: Linux kernel defconfig to build
+      default: ""
+    - name: SRC_TARBALL
+      type: string
+      description: URL of the kernel source tarball
+      default: ""
+    - name: BUILD_CONFIG
+      type: string
+      description: Name of the build configuration
+      default: ""
+    - name: GIT_DESCRIBE
+      type: string
+      description: Output of 'git describe' at the revision of the snapshot
+      default: ""
+    - name: GIT_DESCRIBE_VERBSE
+      type: string
+      description: Verbose output of 'git describe' at the revision of the snapshot
+      default: ""
+    - name: COMMIT_ID
+      type: string
+      description: Git commit SHA1 at the revision of the snapshot
+      default: ""
+    - name: BUILD_ENVIRONMENT
+      type: string
+      description: Name of the build environment
+      default: ""
+    - name: NODE_LABEL
+      type: string
+      description: Label to use to choose a node on which to run this job
+      default: ""
+    - name: PUBLISH
+      type: string
+      description: Publish build results via the KernelCI backend API
+      default: ""
+    - name: EMAIL
+      type: string
+      description: Send build results via email
+      default: ""
+    - name: KCI_API_URL
+      type: string
+      description: URL of the KernelCI backend API
+      default: "https://api.kernelci.org"
+    - name: KCI_TOKEN_ID
+      type: string
+      description: Identifier of the KernelCI backend API token stored in Secrets
+      default: ""
+    - name: KCI_STORAGE_URL
+      type: string
+      description: URL of the KernelCI storage server
+      default: "https://storage.kernelci.org"
+    - name: KCI_CORE_URL
+      type: string
+      description: URL of the kernelci-core repository
+      default: "https://github.com/kernelci/kernelci-core.git"
+    - name: KCI_CORE_BRANCH
+      type: string
+      description: Name of the branch to use in kernelci-core repository
+      default: "master"
+    - name: KCI_CORE_PATH
+      type: string
+      description: Path to the local clone of kernelci-core
+      default: "/workspace/kernelci-core"
+    - name: DOCKER_BASE
+      type: string
+      description: Dockerhub base address used for the build images
+      default: "kernelci/"
+    - name: PARALLEL_BUILDS
+      type: string
+      description: Number of kernel builds to run in parallel
+      default: ""
+  results:
+    - name: built
+      description: Yes/No status of whether a build was done
+  steps:
+    - name: update-repo 
+      image: registry.hub.docker.com/$(params.DOCKER_BASE)build-base
+      workingDir: /workspace
+      script: |
+        #!/bin/bash -xe
+        $(params.KCI_CORE_PATH)/kci_build \
+          --yaml-configs=$(params.KCI_CORE_PATH)/build-configs.yaml \
+          update_repo \
+          --build-config=next \
+          --kdir=linux \
+          --mirror=linux-mirror.git
+      volumeMounts:
+      - name: kernelci-pvc
+        mountPath: /workspace
+    - name: generate-fragments
+      image: registry.hub.docker.com/$(params.DOCKER_BASE)build-base
+      workingDir: /workspace
+      script: |
+        #!/bin/bash -xe
+        $(params.KCI_CORE_PATH)/kci_build \
+          --yaml-configs=$(params.KCI_CORE_PATH)/build-configs.yaml \
+          generate_fragments \
+          --build-config=next \
+          --kdir=linux
+      volumeMounts:
+      - name: kernelci-pvc
+        mountPath: /workspace
+    - name:  build-kernel
+      image: registry.hub.docker.com/$(params.DOCKER_BASE)build-base
+      workingDir: /workspace
+      script: |
+        #!/bin/bash -xe
+        $(params.KCI_CORE_PATH)/kci_build \
+          --yaml-configs=$(params.KCI_CORE_PATH)/build-configs.yaml \
+          build_kernel \
+          --defconfig=defconfig \
+          --arch=x86_64 \
+          --build-env=gcc-8 \
+          --kdir=linux
+        # For now hard code that the build succeeded
+        echo -n "Yes" | tee $(results.built.path);
+      volumeMounts:
+      - name: kernelci-pvc
+        mountPath: /workspace
+
+
