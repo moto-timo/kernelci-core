@@ -1,0 +1,16 @@
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineRun
+metadata:
+  creationTimestamp: null
+  generateName: kernelci-monitor-pipeline-run-
+  namespace: tekton-pipelines
+spec:
+  pipelineRef:
+    name: kernelci-monitor-pipeline
+  timeout: 1h0m0s
+  podTemplate:
+    volumes:
+    - name: kernelci-pvc
+      persistentVolumeClaim:
+        claimName: kernelci-pvc
+status: {}
