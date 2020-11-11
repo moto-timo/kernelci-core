@@ -1,0 +1,24 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: kernelci-monitor-pipeline
+  namespace: tekton-pipelines
+spec:
+  tasks:
+  - name: kernelci-monitor
+    taskRef:
+      name: kernelci-monitor
+  - name: kernelci-build
+    when:
+      - input: "$(tasks.kernelci-monitor.results.changed)"
+        operator: in
+        values: ["Yes"]
+    taskRef:
+      name: kernelci-build
+  - name: kernelci-log
+    when:
+      - input: "$(tasks.kernelci-build.results.built)"
+        operator: in
+        values: ["Yes"]
+    taskRef:
+      name: kernelci-log

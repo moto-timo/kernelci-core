@@ -1,0 +1,20 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  name: kernel-monitor-template
+  namespace: tekton-pipelines
+spec:
+  resourcetemplates:
+  - apiVersion: tekton.dev/v1beta1
+    kind: PipelineRun
+    metadata:
+      generateName: kernelci-monitor-pipeline-run-
+    spec:
+      pipelineRef:
+        name: kernelci-monitor-pipeline
+      timeout: "1h"
+      podTemplate:
+        volumes:
+        - name: kernelci-pvc
+          persistentVolumeClaim:
+            claimName: kernelci-pvc
