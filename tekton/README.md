@@ -1,7 +1,7 @@
 KernelCI Tekton
 ---------------
 
-This is a POC/WIP inspired by the kernelci-jenkins jobs but implemented in Tekton
+This is a POC/WIP inspired by the kernelci-jenkins jobs but implemented in Tekton.
 
 For now, see the README.md in https://github.com/threexc/yocto-tekton for some guidance to get a single-node cluster up and running.
 
@@ -31,7 +31,25 @@ kubectl replace -f build-task.yaml
 
 A combination of the tekton dashboard, k9s, kubectl command line and tkn command line tools will help you troubleshoot any issues you have.
 
+Once you have successfully performed pipeline-kernel, you should have a directory structure similar to:
+
+
+/tekton/kernelci
+├── kernelci-core
+├── linux
+├── linux-mirror.git
+└── logs
+    ├── bmeta.json
+    └── build.log
+
+
+Future work
+-----------
 TODO: rootfs pipeline
+
+TODO: dynamically create build tasks for multiple configs
+
+TODO: demonstrate how to run this in a cloud provider
 
 TODO:
 Reuse tasks from the Tekton catalog, as presented on the hub.
