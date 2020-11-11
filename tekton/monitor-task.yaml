@@ -1,0 +1,106 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: kernelci-monitor
+  namespace: tekton-pipelines
+spec:
+  params:
+    - name: CONFIG_LIST
+      type: array
+      description: List of build configs to check instead of all the ones in build-configs.yaml
+      default: []
+    - name: KCI_API_URL
+      type: string
+      description: URL of the KernelCI backend API
+      default: "https://api.kernelci.org"
+    - name: KCI_TOKEN_ID
+      type: string
+      description: Identifier of the KernelCI backend API token stored in Secrets
+      default: ''
+    - name: KCI_STORAGE_URL
+      type: string
+      description: URL of the KernelCI storage server
+      default: "https://storage.kernelci.org"
+    - name: KCI_CORE_URL
+      type: string
+      description: URL of the kernelci-core repository
+      default: "https://github.com/kernelci/kernelci-core.git"
+    - name: KCI_CORE_BRANCH
+      type: string
+      description: Name of the branch to use in kernelci-core repository
+      default: "master"
+    - name: DOCKER_BASE
+      type: string
+      description: Dockerhub base address used for the build images
+      default: "kernelci/"
+  results:
+    - name: changed
+      description: Yes/No status of whether a git tree changed
+  steps:
+    - name: init 
+      image: registry.hub.docker.com/$(params.DOCKER_BASE)build-base
+      workingDir: /workspace
+      script: |
+        #!/bin/bash -xe
+        echo "\n"
+        echo "Storage: " + $(params.KCI_STORAGE_URL)
+        echo "Container: " + $(params.DOCKER_BASE)build-base
+        # TODO check for updates
+        export KCI_CORE="kernelci-core"
+        if [ ! -d "$KCI_CORE" ]; then
+            git clone --depth 1 --branch $(params.KCI_CORE_BRANCH) $(params.KCI_CORE_URL) $KCI_CORE
+        fi
+
+        # TODO check for updates
+        export KERNEL_MIRROR="/workspace/linux-mirror.git"
+        if [ ! -d "$KERNEL_MIRROR" ]; then
+            $KCI_CORE/kci_build update_mirror --build-config=next --mirror=linux-mirror.git
+        fi
+      volumeMounts:
+      - name: kernelci-pvc
+        mountPath: /workspace
+    - name: monitor
+      image: registry.hub.docker.com/$(params.DOCKER_BASE)build-base
+      workingDir: /workspace
+      script: |
+        #!/bin/bash -xe
+        export KCI_CORE="/workspace/kernelci-core"
+        export TREES="/workspace/trees"
+
+        pushd $KCI_CORE
+        raw_configs=($(${KCI_CORE}/kci_build list_configs))
+        #for config in ${raw_configs[@]}; do echo $config; done
+        popd
+
+        checkConfig() {
+            config=$1
+            kci_core=$2
+            trees_dir=$3
+            retry=3
+            commit=''
+
+            #while (( retry >= 1 )); do
+            #
+            #    
+            #    echo $(( retry-- ))
+                commit=$($kci_core/kci_build \
+                --yaml-configs $kci_core/build-configs.yaml \
+                check_new_commit \
+                --build-config ${config} \
+                --storage $(params.KCI_STORAGE_URL))
+            #done
+            echo $commit
+        }
+        
+        checkConfig mainline $KCI_CORE $TREES
+
+        # For now, hard code that a change was detected
+        # this will trigger the build-task
+        echo -n "Yes" | tee $(results.changed.path);
+
+      volumeMounts:
+      - name: kernelci-pvc
+        mountPath: /workspace
+
+
