@@ -1,0 +1,19 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: kernelci-cronjob
+  namespace: tekton-pipelines
+spec:
+  schedule: "H/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: kernelci-nettools
+            image: threexc/nettools
+            args:
+            - /bin/bash
+            - -c
+            - curl -X POST http://el-kernel-listener.tekton-pipelines.svc.cluster.local:8080
+          restartPolicy: OnFailure
