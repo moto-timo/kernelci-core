@@ -1,0 +1,21 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: kernelci-log
+  namespace: tekton-pipelines
+spec:
+  steps:
+    - name: copy-log
+      image: registry.hub.docker.com/kernelci/build-base
+      workingDir: /workspace
+      script: |
+        #!/bin/bash -xe
+        if [ ! -d "/workspace/logs" ]; then
+           mkdir /workspace/logs
+        fi
+        cp linux/build/*.log /workspace/logs/
+        cp linux/build/bmeta.json /workspace/logs/
+      volumeMounts:
+      - name: kernelci-pvc
+        mountPath: /workspace
